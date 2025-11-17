@@ -4,6 +4,9 @@ A tiny, single-file web app to convert JPG/PNG images to EPS (Encapsulated PostS
 
 > Note: You mentioned "ESP". This app outputs `.eps`. If you really require `.esp`, please clarify the exact format you need.
 
+
+<img width="1047" height="825" alt="image" src="https://github.com/user-attachments/assets/9ab865f2-2737-4418-96bd-188d9e3322e7" />
+
 ## Quick Start
 
 - Open `index.html` in your browser (no server required), or serve the folder with any static server.
