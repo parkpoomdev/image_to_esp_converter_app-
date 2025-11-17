@@ -25,6 +25,14 @@ A tiny, single-file web app to convert JPG/PNG images to EPS (Encapsulated PostS
 - Large images produce large `.eps` files and take longer to generate. Consider setting a reasonable "Max dimension" (e.g. 2048).
 - Output filename defaults to the original name with `.eps` extension; you can change it.
 
+## Using with LaTeX
+
+- `pdflatex` cannot include `.eps` directly. Either:
+	- Convert `.eps` to `.pdf` first (e.g. `epstopdf figure.eps`) and include the `.pdf`, or
+	- Use `\usepackage{epstopdf}` and enable shell-escape: `pdflatex -shell-escape main.tex`.
+- If you compile with `latex` (DVI) + `dvips` + `ps2pdf`, you can include `.eps` directly with `\includegraphics{figure.eps}`.
+- The generated EPS omits `showpage` and includes `%%HiResBoundingBox` for better compatibility with `dvips`/Ghostscript.
+
 ## Limitations
 
 - Alpha channel (transparency) is flattened to white.
