@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image to EPS Converter</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #141a2f;
+      --accent: #6ea8fe;
+      --text: #e6e9ef;
+      --muted: #94a3b8;
+      --border: #22305a;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 600px at 20% -10%, #1a2458 0%, rgba(26,36,88,0) 60%),
+                  radial-gradient(1000px 700px at 110% 0%, #1e3a8a 0%, rgba(30,58,138,0) 60%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+    header {
+      padding: 24px 16px; text-align: center;
+    }
+    header h1 { margin: 0 0 8px; font-size: 24px; letter-spacing: 0.3px; }
+    header p { margin: 0; color: var(--muted); }
+    .container {
+      width: min(980px, 92vw);
+      margin: 0 auto 32px;
+      background: color-mix(in srgb, var(--panel) 92%, black 8%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+    .grid {
+      display: grid; gap: 16px;
+      grid-template-columns: 1fr; align-items: start;
+    }
+    @media (min-width: 900px) { .grid { grid-template-columns: 1.2fr 1fr; } }
+
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 12px; padding: 22px; text-align: center;
+      background: rgba(20,26,47,0.66);
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+      cursor: pointer; -webkit-user-select: none; user-select: none;
+    }
+    .dropzone:hover { border-color: var(--accent); background: rgba(28,36,70,0.66); transform: translateY(-1px); }
+    .dropzone.dragover { border-color: var(--ok); background: rgba(16,41,25,0.4); }
+    .dropzone input { display: none; }
+
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; margin-top: 8px; }
+    .row-between { justify-content: space-between; }
+    .mt-12 { margin-top: 12px; }
+    .mt-16 { margin-top: 16px; }
+    .flex1 { flex: 1; }
+    .maxw-280 { max-width: 280px; }
+    .strong { font-weight: 600; }
+    .hidden { display: none; }
+    .hint { color: var(--muted); font-size: 13px; }
+
+    .preview {
+      border-radius: 12px; overflow: hidden; background: #0d1226; border: 1px solid var(--border);
+      display: grid; place-items: center; min-height: 220px;
+    }
+    .preview img { max-width: 100%; display: block; }
+
+    .controls { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+    .control { background: #0e1530; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+    .control label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    .control input[type="number"] { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #33406f; background: #0b122b; color: var(--text); }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    button, .button {
+      background: linear-gradient(180deg, #1d4ed8, #1e40af);
+      border: 1px solid #2448a2; color: white; border-radius: 10px; padding: 10px 14px; cursor: pointer;
+      font-weight: 600; letter-spacing: 0.2px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+    }
+    button.secondary { background: linear-gradient(180deg, #334155, #1f2937); border-color: #3b4560; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .log { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 12px; color: var(--muted); white-space: pre-wrap; background: #0a0f22; border: 1px dashed #2a355f; border-radius: 10px; padding: 12px; min-height: 50px; }
+    footer { text-align: center; color: var(--muted); padding: 24px 16px; font-size: 13px; }
+    .badge { background: #0b1533; border: 1px solid #253870; color: #9fb5ff; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Image → EPS Converter</h1>
+    <p>Drop a JPG/PNG to convert it into an .eps (Encapsulated PostScript) file.</p>
+  </header>
+
+  <main class="container">
+    <div class="grid">
+      <section>
+        <label class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept="image/png, image/jpeg" />
+          <div>
+            <div class="strong">Drag & drop image here</div>
+            <div class="row">
+              <span class="hint">or</span>
+              <button type="button" class="secondary" id="browseBtn">Browse…</button>
+            </div>
+            <div class="row"><span class="badge">Supported: .jpg, .jpeg, .png</span></div>
+          </div>
+        </label>
+
+        <div class="row row-between mt-16">
+          <div class="control flex1 maxw-280">
+            <label for="maxDim">Max dimension (px, optional)</label>
+            <input type="number" id="maxDim" placeholder="e.g. 2048" min="1" />
+          </div>
+          <div class="control flex1 maxw-280">
+            <label for="filename">Output filename</label>
+            <input type="text" id="filename" placeholder="image.eps" />
+          </div>
+        </div>
+
+        <div class="actions mt-12">
+          <button id="convertBtn" disabled>Convert to EPS</button>
+          <a id="downloadLink" class="button hidden">Download .eps</a>
+        </div>
+      </section>
+
+      <section>
+        <div class="preview" id="preview"><span class="hint">Preview will appear here</span></div>
+        <div class="log mt-12" id="log"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    If you meant ".esp", this app outputs ".eps". If you truly need ".esp", please clarify the format.
+  </footer>
+
+  <script>
+    // Utilities
+    const $ = (sel) => document.querySelector(sel);
+    const dropzone = $('#dropzone');
+    const input = $('#fileInput');
+    const browseBtn = $('#browseBtn');
+    const preview = $('#preview');
+    const logEl = $('#log');
+    const convertBtn = $('#convertBtn');
+    const downloadLink = $('#downloadLink');
+    const maxDimEl = $('#maxDim');
+    const filenameEl = $('#filename');
+
+    let loadedImage = null; // {img, width, height, canvas}
+
+    function log(msg) {
+      logEl.textContent = msg;
+    }
+
+    function prettyBytes(n) {
+      if (!Number.isFinite(n)) return '0 B';
+      const units = ['B','KB','MB','GB'];
+      let i = 0; let v = n;
+      while (v >= 1024 && i < units.length-1) { v /= 1024; i++; }
+      return v.toFixed(v < 10 && i > 0 ? 2 : 0) + ' ' + units[i];
+    }
+
+    function setPreview(src, w, h) {
+      preview.innerHTML = '';
+      const img = new Image();
+      img.src = src; img.alt = 'preview';
+      img.style.maxHeight = '360px';
+      preview.appendChild(img);
+      const dims = document.createElement('div');
+      dims.className = 'hint';
+      dims.style.marginTop = '8px';
+      dims.textContent = `Image: ${w}×${h}px`;
+      preview.appendChild(dims);
+    }
+
+    function readFile(file) {
+      return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onerror = () => reject(fr.error);
+        fr.onload = () => resolve(fr.result);
+        fr.readAsDataURL(file);
+      });
+    }
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+
+    function drawToCanvas(img, maxDim) {
+      let { width, height } = img;
+      if (maxDim && Number(maxDim) > 0) {
+        const scale = Math.min(1, maxDim / Math.max(width, height));
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+      }
+      const c = document.createElement('canvas');
+      c.width = width; c.height = height;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      // Fill white to avoid transparent background turning black in EPS
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      return { canvas: c, width, height };
+    }
+
+    function toHex(n) {
+      const s = n.toString(16).toUpperCase();
+      return s.length === 1 ? '0' + s : s;
+    }
+
+    // Core: Canvas ImageData -> EPS text
+    function imageDataToEPS(imageData, w, h, title = 'image') {
+      // EPS header
+      const now = new Date().toISOString();
+      const header = [
+        '%!PS-Adobe-3.0 EPSF-3.0',
+        '%%Creator: Image to EPS (JavaScript)',
+        `%%Title: ${title}`,
+        `%%CreationDate: ${now}`,
+        `%%BoundingBox: 0 0 ${w} ${h}`,
+        '%%LanguageLevel: 2',
+        '%%Pages: 1',
+        '%%EndComments',
+        '',
+        `/picstr ${w * 3} string def`,
+        `${w} ${h} 8`,
+        `[${w} 0 0 -${h} 0 ${h}]`,
+        '{currentfile picstr readhexstring pop}',
+        'false 3 colorimage',
+      ].join('\n');
+
+      const data = imageData.data; // RGBA
+      const lines = [];
+      let line = '';
+      // Write RGB as hex, ignore A
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        line += toHex(r) + toHex(g) + toHex(b);
+        // Break lines around ~60-120 chars for readability
+        if (line.length >= 120) { lines.push(line); line = ''; }
+      }
+      if (line.length) lines.push(line);
+
+      const body = lines.join('\n');
+      const trailer = ['','showpage','%%EOF',''].join('\n');
+      return `${header}\n${body}\n${trailer}`;
+    }
+
+    async function handleFiles(files) {
+      const file = files && files[0];
+      if (!file) return;
+      downloadLink.style.display = 'none';
+      downloadLink.removeAttribute('href');
+      convertBtn.disabled = true;
+      log('Loading image…');
+      if (!/^image\/(png|jpeg)$/.test(file.type)) {
+        log('Unsupported file type. Please use PNG or JPG.');
+        return;
+      }
+      try {
+        const dataUrl = await readFile(file);
+        const img = await loadImage(dataUrl);
+        const maxDim = parseInt(maxDimEl.value, 10);
+        const { canvas, width, height } = drawToCanvas(img, isNaN(maxDim) ? undefined : maxDim);
+        setPreview(canvas.toDataURL('image/png'), width, height);
+        loadedImage = { img, canvas, width, height, name: file.name };
+        const outName = (file.name || 'image').replace(/\.(png|jpg|jpeg)$/i, '') + '.eps';
+        filenameEl.value = filenameEl.value || outName;
+        log(`Ready. Image size: ${width}×${height} px`);
+        convertBtn.disabled = false;
+      } catch (err) {
+        console.error(err);
+        log('Failed to load image. ' + (err && err.message ? err.message : ''));
+      }
+    }
+
+    async function convertToEPS() {
+      if (!loadedImage) return;
+      convertBtn.disabled = true;
+      log('Converting to EPS (this may take a moment for large images)…');
+      await new Promise(r => setTimeout(r));
+      const { canvas, width, height, name } = loadedImage;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const imageData = ctx.getImageData(0, 0, width, height);
+      const epsText = imageDataToEPS(imageData, width, height, name || 'image');
+      const blob = new Blob([epsText], { type: 'application/postscript' });
+      const url = URL.createObjectURL(blob);
+      const outName = (filenameEl.value && filenameEl.value.trim()) ? filenameEl.value.trim() : 'image.eps';
+      downloadLink.href = url;
+      downloadLink.download = outName.endsWith('.eps') ? outName : outName + '.eps';
+      downloadLink.style.display = 'inline-flex';
+      log(`Done. EPS size: ${prettyBytes(blob.size)}. Click Download.`);
+      convertBtn.disabled = false;
+    }
+
+    // Drag and drop wiring
+    ;['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, (e) => {
+      e.preventDefault(); e.stopPropagation(); dropzone.classList.add('dragover');
+    }));
+    ;['dragleave','dragend','drop'].forEach(evt => dropzone.addEventListener(evt, (e) => {
+      e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('dragover');
+    }));
+    dropzone.addEventListener('drop', (e) => {
+      const files = e.dataTransfer && e.dataTransfer.files; handleFiles(files);
+    });
+
+    // Browse button and input
+    browseBtn.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => handleFiles(input.files));
+
+    convertBtn.addEventListener('click', convertToEPS);
+
+    // Keyboard accessibility: Enter triggers file browse when focusing dropzone
+    dropzone.tabIndex = 0;
+    dropzone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
+    });
+  </script>
+</body>
+</html>
