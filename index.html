@@ -224,19 +224,23 @@
 
     // Core: Canvas ImageData -> EPS text
     function imageDataToEPS(imageData, w, h, title = 'image') {
-      // EPS header
+      // EPS header tuned for LaTeX/dvips compatibility: no showpage, proper DSC
       const now = new Date().toISOString();
+      const hiW = Number(w).toFixed(3);
+      const hiH = Number(h).toFixed(3);
       const header = [
         '%!PS-Adobe-3.0 EPSF-3.0',
         '%%Creator: Image to EPS (JavaScript)',
         `%%Title: ${title}`,
         `%%CreationDate: ${now}`,
         `%%BoundingBox: 0 0 ${w} ${h}`,
+        `%%HiResBoundingBox: 0 0 ${hiW} ${hiH}`,
         '%%LanguageLevel: 2',
-        '%%Pages: 1',
         '%%EndComments',
-        '',
+        '%%BeginProlog',
         `/picstr ${w * 3} string def`,
+        '%%EndProlog',
+        'gsave',
         `${w} ${h} 8`,
         `[${w} 0 0 -${h} 0 ${h}]`,
         '{currentfile picstr readhexstring pop}',
@@ -258,7 +262,8 @@
       if (line.length) lines.push(line);
 
       const body = lines.join('\n');
-      const trailer = ['','showpage','%%EOF',''].join('\n');
+      // EPS should not call showpage; wrap with grestore and end with EOF
+      const trailer = ['','grestore','%%EOF',''].join('\n');
       return `${header}\n${body}\n${trailer}`;
     }
 
