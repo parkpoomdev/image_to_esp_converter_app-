@@ -33,6 +33,23 @@ A tiny, single-file web app to convert JPG/PNG images to EPS (Encapsulated PostS
 - If you compile with `latex` (DVI) + `dvips` + `ps2pdf`, you can include `.eps` directly with `\includegraphics{figure.eps}`.
 - The generated EPS omits `showpage` and includes `%%HiResBoundingBox` for better compatibility with `dvips`/Ghostscript.
 
+### New: Direct PDF export
+
+- Click "Convert to PDF" to get a single-page PDF that matches the image's original pixel size using a 1px = 1pt mapping. This preserves the intended size when used with `pdflatex`.
+- Include it with:
+
+```tex
+\usepackage{graphicx}
+...
+\includegraphics{figure.pdf}% naturally sized to the PDF page size
+```
+
+- To scale in LaTeX while preserving aspect ratio:
+
+```tex
+\includegraphics[width=0.5\textwidth]{figure.pdf}
+```
+
 ## Limitations
 
 - Alpha channel (transparency) is flattened to white.

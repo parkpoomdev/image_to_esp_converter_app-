@@ -151,7 +151,26 @@
     const preview = $('#preview');
     const logEl = $('#log');
     const convertBtn = $('#convertBtn');
+    const pdfBtn = document.createElement('button');
+    pdfBtn.textContent = 'Convert to PDF';
+    pdfBtn.id = 'convertPdfBtn';
+    pdfBtn.disabled = true;
+    // Insert PDF button next to EPS convert
+    document.addEventListener('DOMContentLoaded', () => {
+      const actions = document.querySelector('.actions');
+      if (actions) actions.insertBefore(pdfBtn, actions.children[1] || null);
+      // Add a second download link for PDF
+      const pdfLink = document.createElement('a');
+      pdfLink.id = 'downloadPdfLink';
+      pdfLink.className = 'button hidden';
+      pdfLink.textContent = 'Download .pdf';
+      actions && actions.appendChild(pdfLink);
+    });
     const downloadLink = $('#downloadLink');
+    let downloadPdfLink = null;
+    window.addEventListener('load', () => {
+      downloadPdfLink = document.getElementById('downloadPdfLink');
+    });
     const maxDimEl = $('#maxDim');
     const filenameEl = $('#filename');
 
@@ -289,6 +308,7 @@
         filenameEl.value = filenameEl.value || outName;
         log(`Ready. Image size: ${width}×${height} px`);
         convertBtn.disabled = false;
+        pdfBtn.disabled = false;
       } catch (err) {
         console.error(err);
         log('Failed to load image. ' + (err && err.message ? err.message : ''));
@@ -314,6 +334,111 @@
       convertBtn.disabled = false;
     }
 
+    // Minimal PDF generator (single-page, image fills page at 1px=1pt)
+    function base64ToUint8Array(base64) {
+      const binStr = atob(base64);
+      const len = binStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
+      return bytes;
+    }
+
+    function canvasToJPEGBytes(canvas, quality = 0.92) {
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      const b64 = dataUrl.split(',')[1];
+      return base64ToUint8Array(b64);
+    }
+
+    function ascii(str) {
+      return new TextEncoder().encode(str);
+    }
+
+    function makePDFWithJPEG(jpegBytes, w, h) {
+      const parts = [];
+      const offsets = [];
+      let lengthSoFar = 0;
+      const push = (u8) => { parts.push(u8); lengthSoFar += u8.length; };
+      const pushS = (s) => push(ascii(s));
+
+      pushS('%PDF-1.4\n');
+
+      const mark = () => { offsets.push(lengthSoFar); };
+
+      // 1: Catalog
+      mark();
+      pushS('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+      // 2: Pages
+      mark();
+      pushS('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+      // 3: Page
+      const media = `[0 0 ${w} ${h}]`;
+      mark();
+      pushS('3 0 obj\n');
+      pushS('<< /Type /Page /Parent 2 0 R ');
+      pushS(`/MediaBox ${media} `);
+      pushS('/Resources << /ProcSet [/PDF /ImageC] /XObject << /Im0 5 0 R >> >> ');
+      pushS('/Contents 4 0 R >>\nendobj\n');
+      // 4: Contents
+      const content = `q\n${w} 0 0 ${h} 0 0 cm\n/Im0 Do\nQ\n`;
+      const contentLen = content.length;
+      mark();
+      pushS('4 0 obj\n');
+      pushS(`<< /Length ${contentLen} >>\nstream\n`);
+      pushS(content);
+      pushS('endstream\nendobj\n');
+      // 5: Image XObject (JPEG)
+      mark();
+      pushS('5 0 obj\n');
+      pushS(`<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} `);
+      pushS('/ColorSpace /DeviceRGB /BitsPerComponent 8 ');
+      pushS(`/Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`);
+      push(jpegBytes);
+      pushS('\nendstream\nendobj\n');
+
+      // xref
+      const xrefPos = lengthSoFar;
+      pushS('xref\n');
+      pushS('0 6\n');
+      pushS('0000000000 65535 f \n');
+      for (let i = 0; i < offsets.length; i++) {
+        const off = String(offsets[i]).padStart(10, '0');
+        pushS(`${off} 00000 n \n`);
+      }
+      // trailer
+      pushS('trailer\n');
+      pushS('<< /Size 6 /Root 1 0 R >>\n');
+      pushS('startxref\n');
+      pushS(String(xrefPos) + '\n');
+      pushS('%%EOF');
+
+      // concat
+      let total = 0; for (const p of parts) total += p.length;
+      const out = new Uint8Array(total);
+      let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+      return new Blob([out], { type: 'application/pdf' });
+    }
+
+    async function convertToPDF() {
+      if (!loadedImage) return;
+      pdfBtn.disabled = true;
+      log('Converting to PDF at original size (1px = 1pt)…');
+      await new Promise(r => setTimeout(r));
+      const { canvas, width, height, name } = loadedImage;
+      const jpeg = canvasToJPEGBytes(canvas, 0.92);
+      const pdfBlob = makePDFWithJPEG(jpeg, width, height);
+      const url = URL.createObjectURL(pdfBlob);
+      if (!downloadPdfLink) downloadPdfLink = document.getElementById('downloadPdfLink');
+      if (downloadPdfLink) {
+        const base = (filenameEl.value && filenameEl.value.trim()) ? filenameEl.value.trim().replace(/\.eps$/i,'') : (name || 'image').replace(/\.(png|jpe?g)$/i,'');
+        const outName = base + '.pdf';
+        downloadPdfLink.href = url;
+        downloadPdfLink.download = outName;
+        downloadPdfLink.classList.remove('hidden');
+      }
+      log(`Done. PDF size: ${prettyBytes(pdfBlob.size)}. Click Download.`);
+      pdfBtn.disabled = false;
+    }
+
     // Drag and drop wiring
     ;['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, (e) => {
       e.preventDefault(); e.stopPropagation(); dropzone.classList.add('dragover');
@@ -330,6 +455,7 @@
     input.addEventListener('change', () => handleFiles(input.files));
 
     convertBtn.addEventListener('click', convertToEPS);
+    pdfBtn.addEventListener('click', convertToPDF);
 
     // Keyboard accessibility: Enter triggers file browse when focusing dropzone
     dropzone.tabIndex = 0;
