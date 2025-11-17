@@ -111,6 +111,7 @@
               <button type="button" class="secondary" id="browseBtn">Browse…</button>
             </div>
             <div class="row"><span class="badge">Supported: .jpg, .jpeg, .png</span></div>
+            <div class="row"><span class="hint">Or press Ctrl+V while focused here to paste an image</span></div>
           </div>
         </label>
 
@@ -449,6 +450,24 @@
     dropzone.addEventListener('drop', (e) => {
       const files = e.dataTransfer && e.dataTransfer.files; handleFiles(files);
     });
+
+    function handleClipboardPaste(event) {
+      const items = event.clipboardData && event.clipboardData.items;
+      if (!items) return;
+      for (const item of items) {
+        if (!item.type.startsWith('image/')) continue;
+        const clipboardFile = item.getAsFile();
+        if (!clipboardFile) continue;
+        const file = clipboardFile.name
+          ? clipboardFile
+          : new File([clipboardFile], 'pasted-image.png', { type: clipboardFile.type });
+        event.preventDefault();
+        log('Pasted image detected, loading…');
+        handleFiles([file]);
+        return;
+      }
+    }
+    document.addEventListener('paste', handleClipboardPaste);
 
     // Browse button and input
     browseBtn.addEventListener('click', () => input.click());
